@@ -1,0 +1,65 @@
+services:
+  php: 
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    depends_on:
+      - db
+    volumes:
+      - type: bind
+        source: "./src"
+        target: "/var/www/html"
+    container_name: php
+
+  db:
+    image: mariadb:latest
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - 3306:3306
+    volumes:
+      - db_data:/var/lib/mysql
+    container_name: db
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    environment:
+      - PMA_ARBITRARY=${PMA_ARBITRARY}
+      - PMA_HOST=${PMA_HOST}
+      - PMA_USER=${PMA_USER}
+      - PMA_PASSWORD=${PMA_PASSWORD}
+    hostname: localhost. # https://github.com/phpmyadmin/docker/issues/293#issuecomment-651193060
+    ports:
+      - 8080:80
+    volumes:
+      - phpmyadmin_sessions:/sessions
+    container_name: phpmyadmin
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./docker/nginx/Dockerfile
+    environment:
+      - IS_SELF_SIGNED=${IS_SELF_SIGNED}
+      - DOMAIN_FOR_LETSENCRYPT=${DOMAIN_FOR_LETSENCRYPT}
+      - MAIL_FOR_LETSENCRYPT=${MAIL_FOR_LETSENCRYPT}
+      - DNS_SAKURACLOUD_API_TOKEN=${DNS_SAKURACLOUD_API_TOKEN}
+      - DNS_SAKURACLOUD_API_SECRET=${DNS_SAKURACLOUD_API_SECRET}
+    command: ["/bin/sh", "/root/startup.sh"]
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - php
+    volumes:
+      - type: bind
+        source: "./src"
+        target: "/var/www/html"
+      - "./docker/misc/letsencrypt:/etc/letsencrypt"
+    container_name: nginx
+
+volumes:
+  db_data:
+    driver: 'local'
+  phpmyadmin_sessions:
+    driver: 'local'
